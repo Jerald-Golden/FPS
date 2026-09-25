@@ -1,8 +1,36 @@
-import { ReactNode, useRef } from 'react';
+import { ReactNode, useRef, useState, createContext, useContext } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useKeyboardControls } from '@react-three/drei';
 import { RigidBody, CapsuleCollider, RapierRigidBody, useRapier } from '@react-three/rapier';
 import * as THREE from 'three';
+
+export interface CharacterControlsState {
+  forward: boolean;
+  backward: boolean;
+  left: boolean;
+  right: boolean;
+  jump: boolean;
+  isGrounded: boolean;
+}
+
+const defaultControlsState: CharacterControlsState = {
+  forward: false,
+  backward: false,
+  left: false,
+  right: false,
+  jump: false,
+  isGrounded: true,
+};
+
+export const CharacterControlsContext = createContext<CharacterControlsState>(defaultControlsState);
+
+export function useCharacterControlsContext() {
+  const context = useContext(CharacterControlsContext);
+  return context;
+}
+
+// Convenient alias hook
+export const useCharacterState = useCharacterControlsContext;
 
 interface CharacterControlsProps {
   children?: ReactNode;
@@ -19,6 +47,9 @@ export function CharacterControls({ children, position = [0, 1.5, 0] }: Characte
   const { rapier, world } = useRapier();
   const [, get] = useKeyboardControls();
   const prevJumpRef = useRef(false);
+
+  const [controlsState, setControlsState] = useState<CharacterControlsState>(defaultControlsState);
+  const controlsRef = useRef<CharacterControlsState>(defaultControlsState);
 
   useFrame(() => {
     if (!rigidBodyRef.current) return;
@@ -76,23 +107,52 @@ export function CharacterControls({ children, position = [0, 1.5, 0] }: Characte
       },
       true
     );
+
+    // Update context state when any control or grounded state changes
+    const f = Boolean(forward);
+    const b = Boolean(backward);
+    const l = Boolean(left);
+    const r = Boolean(right);
+    const j = Boolean(jump);
+
+    if (
+      controlsRef.current.forward !== f ||
+      controlsRef.current.backward !== b ||
+      controlsRef.current.left !== l ||
+      controlsRef.current.right !== r ||
+      controlsRef.current.jump !== j ||
+      controlsRef.current.isGrounded !== isGrounded
+    ) {
+      const nextState: CharacterControlsState = {
+        forward: f,
+        backward: b,
+        left: l,
+        right: r,
+        jump: j,
+        isGrounded,
+      };
+      controlsRef.current = nextState;
+      setControlsState(nextState);
+    }
   });
 
   return (
-    <RigidBody
-      ref={rigidBodyRef}
-      position={position}
-      mass={75}
-      gravityScale={1.8}
-      linearDamping={0.5}
-      lockRotations
-      colliders={false}
-      friction={0.8}
-      restitution={0.0}
-    >
-      <CapsuleCollider args={[0.55, 0.3]} />
-      {children}
-    </RigidBody>
+    <CharacterControlsContext.Provider value={controlsState}>
+      <RigidBody
+        ref={rigidBodyRef}
+        position={position}
+        mass={75}
+        gravityScale={1.8}
+        linearDamping={0.5}
+        lockRotations
+        colliders={false}
+        friction={0.8}
+        restitution={0.0}
+      >
+        <CapsuleCollider args={[0.55, 0.3]} />
+        {children}
+      </RigidBody>
+    </CharacterControlsContext.Provider>
   );
 }
 

@@ -5,6 +5,9 @@ import { Physics } from '@react-three/rapier';
 import { Ground } from './components/Ground';
 import { Character } from './components/Character';
 import { CharacterControls } from './components/CharacterControls';
+import { FirstPersonControls } from './components/FirstPersonControls';
+import { ThirdPersonControls } from './components/ThirdPersonControls';
+import { TopDownControls } from './components/TopDownControls';
 
 enum Controls {
   forward = 'forward',
@@ -67,9 +70,15 @@ export default function App() {
           <Suspense fallback={null}>
             <Physics debug={debug} gravity={[0, -9.81, 0]}>
               <Ground />
-              <CharacterControls>
-                <Character />
-              </CharacterControls>
+              <FirstPersonControls>
+                <ThirdPersonControls>
+                  <TopDownControls>
+                    <CharacterControls>
+                      <Character />
+                    </CharacterControls>
+                  </TopDownControls>
+                </ThirdPersonControls>
+              </FirstPersonControls>
             </Physics>
           </Suspense>
 
