@@ -1,0 +1,6 @@
+{
+  "name": "Three.js 3D Stickman Scene",
+  "description": "An interactive 3D scene built with Three.js, React Three Fiber, and Drei featuring an articulated stickman at the center of an Unreal Engine developer grid with live animations and material controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
