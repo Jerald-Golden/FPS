@@ -1,8 +1,9 @@
 import { ReactNode, useRef, useState, createContext, useContext } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useKeyboardControls } from '@react-three/drei';
 import { RigidBody, CapsuleCollider, RapierRigidBody, useRapier } from '@react-three/rapier';
 import * as THREE from 'three';
+import { useThirdPerson } from './ThirdPersonControls';
 
 export interface CharacterControlsState {
   forward: boolean;
@@ -41,12 +42,16 @@ const MOVE_SPEED = 5;
 const JUMP_FORCE = 6.2;
 const moveVector = new THREE.Vector3();
 const rayDirection = { x: 0, y: -1, z: 0 };
+const camForward = new THREE.Vector3();
+const camRight = new THREE.Vector3();
 
 export function CharacterControls({ children, position = [0, 1.5, 0] }: CharacterControlsProps) {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
+  const { camera } = useThree();
   const { rapier, world } = useRapier();
   const [, get] = useKeyboardControls();
   const prevJumpRef = useRef(false);
+  const { isThirdPerson: isThirdPersonActive, target: thirdPersonTarget } = useThirdPerson();
 
   const [controlsState, setControlsState] = useState<CharacterControlsState>(defaultControlsState);
   const controlsRef = useRef<CharacterControlsState>(defaultControlsState);
@@ -63,10 +68,25 @@ export function CharacterControls({ children, position = [0, 1.5, 0] }: Characte
 
     moveVector.set(0, 0, 0);
 
-    if (forward) moveVector.z -= 1;
-    if (backward) moveVector.z += 1;
-    if (left) moveVector.x -= 1;
-    if (right) moveVector.x += 1;
+    if (isThirdPersonActive) {
+      // Calculate movement relative to third-person camera orientation
+      camera.getWorldDirection(camForward);
+      camForward.y = 0;
+      camForward.normalize();
+
+      camRight.crossVectors(camForward, camera.up).normalize();
+
+      if (forward) moveVector.add(camForward);
+      if (backward) moveVector.sub(camForward);
+      if (left) moveVector.sub(camRight);
+      if (right) moveVector.add(camRight);
+    } else {
+      // Standard world-axis aligned movement
+      if (forward) moveVector.z -= 1;
+      if (backward) moveVector.z += 1;
+      if (left) moveVector.x -= 1;
+      if (right) moveVector.x += 1;
+    }
 
     if (moveVector.lengthSq() > 0) {
       moveVector.normalize().multiplyScalar(MOVE_SPEED);
@@ -76,6 +96,12 @@ export function CharacterControls({ children, position = [0, 1.5, 0] }: Characte
     // Center to bottom of capsule is 0.85 (0.55 halfHeight + 0.3 radius)
     let isGrounded = false;
     const origin = rigidBodyRef.current.translation();
+
+    // Update target for third person camera (head height is +0.65 above origin)
+    if (thirdPersonTarget?.current) {
+      thirdPersonTarget.current.set(origin.x, origin.y + 0.65, origin.z);
+    }
+
     const ray = new rapier.Ray(origin, rayDirection);
     const hit = world.castRay(
       ray,

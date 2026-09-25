@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { KeyboardControls, KeyboardControlsEntry, OrbitControls, Sky } from '@react-three/drei';
 import { Physics } from '@react-three/rapier';
+import { KeyboardControls, KeyboardControlsEntry, Sky, OrbitControls } from '@react-three/drei';
 import { Ground } from './components/Ground';
 import { Character } from './components/Character';
 import { CharacterControls } from './components/CharacterControls';
@@ -70,9 +70,9 @@ export default function App() {
           <Suspense fallback={null}>
             <Physics debug={debug} gravity={[0, -9.81, 0]}>
               <Ground />
-              <FirstPersonControls>
-                <ThirdPersonControls>
-                  <TopDownControls>
+              <FirstPersonControls enabled={false}>
+                <ThirdPersonControls enabled={true}>
+                  <TopDownControls enabled={false}>
                     <CharacterControls>
                       <Character />
                     </CharacterControls>
@@ -82,7 +82,7 @@ export default function App() {
             </Physics>
           </Suspense>
 
-          <OrbitControls maxPolarAngle={Math.PI / 2 - 0.01} minDistance={1} maxDistance={600} />
+          <OrbitControls enabled={false} maxPolarAngle={Math.PI / 2 - 0.01} minDistance={1} maxDistance={600} />
         </Canvas>
       </KeyboardControls>
     </div>

@@ -1,16 +1,33 @@
-import { ReactNode, createContext, useContext } from 'react';
+import { ReactNode, createContext, useContext, useMemo, useRef } from 'react';
+import * as THREE from 'three';
 
-export const isFirstPerson = createContext<boolean>(false);
-export const isFirstPersonContext = isFirstPerson;
-export const IsFirstPersonContext = isFirstPerson;
-export const FirstPersonContext = isFirstPerson;
-
-export function useIsFirstPerson(): boolean {
-  return useContext(isFirstPerson);
+export interface FirstPersonContextValue {
+  enabled: boolean;
+  isFirstPerson: boolean;
+  target: React.MutableRefObject<THREE.Vector3>;
 }
 
-export function useFirstPerson(): { isFirstPerson: boolean } {
-  return { isFirstPerson: useContext(isFirstPerson) };
+export const FirstPersonContext = createContext<FirstPersonContextValue>({
+  enabled: false,
+  isFirstPerson: false,
+  target: { current: new THREE.Vector3(0, 1.7, 0) },
+});
+
+export const isFirstPerson = FirstPersonContext;
+export const isFirstPersonContext = FirstPersonContext;
+export const IsFirstPersonContext = FirstPersonContext;
+export const FirstPersonTargetContext = FirstPersonContext;
+
+export function useFirstPerson(): FirstPersonContextValue {
+  return useContext(FirstPersonContext);
+}
+
+export function useIsFirstPerson(): boolean {
+  return useContext(FirstPersonContext).enabled;
+}
+
+export function useFirstPersonTarget(): React.MutableRefObject<THREE.Vector3> {
+  return useContext(FirstPersonContext).target;
 }
 
 interface FirstPersonControlsProps {
@@ -19,10 +36,21 @@ interface FirstPersonControlsProps {
 }
 
 export function FirstPersonControls({ children, enabled = true }: FirstPersonControlsProps) {
+  const headPosRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 1.7, 0));
+
+  const contextValue = useMemo<FirstPersonContextValue>(
+    () => ({
+      enabled,
+      isFirstPerson: enabled,
+      target: headPosRef,
+    }),
+    [enabled]
+  );
+
   return (
-    <isFirstPerson.Provider value={enabled}>
+    <FirstPersonContext.Provider value={contextValue}>
       {children}
-    </isFirstPerson.Provider>
+    </FirstPersonContext.Provider>
   );
 }
 

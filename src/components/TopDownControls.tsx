@@ -1,16 +1,33 @@
-import { ReactNode, createContext, useContext } from 'react';
+import { ReactNode, createContext, useContext, useMemo, useRef } from 'react';
+import * as THREE from 'three';
 
-export const isTopDown = createContext<boolean>(false);
-export const isTopDownContext = isTopDown;
-export const IsTopDownContext = isTopDown;
-export const TopDownContext = isTopDown;
-
-export function useIsTopDown(): boolean {
-  return useContext(isTopDown);
+export interface TopDownContextValue {
+  enabled: boolean;
+  isTopDown: boolean;
+  target: React.MutableRefObject<THREE.Vector3>;
 }
 
-export function useTopDown(): { isTopDown: boolean } {
-  return { isTopDown: useContext(isTopDown) };
+export const TopDownContext = createContext<TopDownContextValue>({
+  enabled: false,
+  isTopDown: false,
+  target: { current: new THREE.Vector3(0, 0, 0) },
+});
+
+export const isTopDown = TopDownContext;
+export const isTopDownContext = TopDownContext;
+export const IsTopDownContext = TopDownContext;
+export const TopDownTargetContext = TopDownContext;
+
+export function useTopDown(): TopDownContextValue {
+  return useContext(TopDownContext);
+}
+
+export function useIsTopDown(): boolean {
+  return useContext(TopDownContext).enabled;
+}
+
+export function useTopDownTarget(): React.MutableRefObject<THREE.Vector3> {
+  return useContext(TopDownContext).target;
 }
 
 interface TopDownControlsProps {
@@ -19,10 +36,21 @@ interface TopDownControlsProps {
 }
 
 export function TopDownControls({ children, enabled = true }: TopDownControlsProps) {
+  const targetPosRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0));
+
+  const contextValue = useMemo<TopDownContextValue>(
+    () => ({
+      enabled,
+      isTopDown: enabled,
+      target: targetPosRef,
+    }),
+    [enabled]
+  );
+
   return (
-    <isTopDown.Provider value={enabled}>
+    <TopDownContext.Provider value={contextValue}>
       {children}
-    </isTopDown.Provider>
+    </TopDownContext.Provider>
   );
 }
 

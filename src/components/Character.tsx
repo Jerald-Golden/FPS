@@ -8,7 +8,7 @@ export function Character() {
       </mesh>
 
       {/* Floating sphere representing the head */}
-      <mesh castShadow receiveShadow position={[0, 0.65, 0]}>
+      <mesh name="character-head" castShadow receiveShadow position={[0, 0.65, 0]}>
         <sphereGeometry args={[0.2, 32, 32]} />
         <meshStandardMaterial color="#3b82f6" roughness={0.25} metalness={0.3} />
       </mesh>
