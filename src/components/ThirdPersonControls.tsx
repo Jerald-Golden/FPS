@@ -64,6 +64,9 @@ export function ThirdPersonControls({
     [enabled]
   );
 
+  // Track initialization
+  const isInitializedRef = useRef<boolean>(false);
+
   // Spherical coordinates
   // radius: distance from head to camera
   const radiusRef = useRef<number>(initialDistance);
@@ -81,7 +84,6 @@ export function ThirdPersonControls({
   const lastPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Temp vectors to prevent allocation inside useFrame
-  const sphereTargetVec = useRef<THREE.Vector3>(new THREE.Vector3());
   const tempHeadVec = useRef<THREE.Vector3>(new THREE.Vector3());
 
   useEffect(() => {
@@ -219,38 +221,52 @@ export function ThirdPersonControls({
 
     const head = headPosRef.current;
 
-    // 2. Smoothly animate spherical radius when zooming
+    // On initial run, smoothly pull camera from wherever it was in space to the sphere
+    if (!isInitializedRef.current) {
+      isInitializedRef.current = true;
+      lookAtRef.current.copy(head);
+
+      const offset = camera.position.clone().sub(head);
+      const dist = offset.length();
+      if (dist > 0.1) {
+        const p = Math.acos(THREE.MathUtils.clamp(offset.y / dist, -1, 1));
+        const t = Math.atan2(offset.x, offset.z);
+        phiRef.current = THREE.MathUtils.clamp(p, 0.08, Math.PI / 2 - 0.03);
+        thetaRef.current = t;
+        // If camera starts further away, start radius from that distance and smoothly pull in
+        if (dist > targetRadiusRef.current) {
+          radiusRef.current = dist;
+        }
+      }
+    }
+
+    // 2. Smoothly animate spherical radius (handles zoom as well as initial transition from far away)
     radiusRef.current = THREE.MathUtils.lerp(
       radiusRef.current,
       targetRadiusRef.current,
-      Math.min(1, delta * 10)
+      Math.min(1, delta * 8)
     );
     const radius = radiusRef.current;
 
-    // 3. Calculate target position on the spherical orbit around the head
+    // 3. Smoothly follow head with lookAt target
+    lookAtRef.current.lerp(head, Math.min(1, delta * 20));
+    const smoothHead = lookAtRef.current;
+
+    // 4. Calculate camera position strictly on the spherical shell around the head
     const phi = phiRef.current;
     const theta = thetaRef.current;
 
-    const targetX = head.x + radius * Math.sin(phi) * Math.sin(theta);
-    const targetY = head.y + radius * Math.cos(phi);
-    const targetZ = head.z + radius * Math.sin(phi) * Math.cos(theta);
+    const targetX = smoothHead.x + radius * Math.sin(phi) * Math.sin(theta);
+    const targetY = smoothHead.y + radius * Math.cos(phi);
+    const targetZ = smoothHead.z + radius * Math.sin(phi) * Math.cos(theta);
 
-    sphereTargetVec.current.set(targetX, targetY, targetZ);
-
-    // 4. Bring camera to the spherical orbit around the head if it is too far
-    const currentDistanceToHead = camera.position.distanceTo(head);
-
-    if (currentDistanceToHead > radius + 0.1) {
-      const speed = Math.min(1, delta * 7);
-      camera.position.lerp(sphereTargetVec.current, speed);
-    } else {
-      const speed = Math.min(1, delta * 14);
-      camera.position.lerp(sphereTargetVec.current, speed);
-    }
+    // Set camera position directly on the sphere surface.
+    // Distance from smoothHead is mathematically guaranteed to equal `radius`,
+    // completely eliminating inward chord cutting when rotating fast.
+    camera.position.set(targetX, targetY, targetZ);
 
     // 5. Keep the camera focused on the character's head
-    lookAtRef.current.lerp(head, Math.min(1, delta * 16));
-    camera.lookAt(lookAtRef.current);
+    camera.lookAt(smoothHead);
   });
 
   return (
