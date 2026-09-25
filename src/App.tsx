@@ -43,7 +43,7 @@ export default function App() {
   );
 
   return (
-    <div className="w-screen h-screen bg-slate-950">
+    <div className="relative w-screen h-screen bg-slate-950 select-none overflow-hidden">
       <KeyboardControls map={keyboardMap}>
         <Canvas
           shadows
@@ -73,7 +73,7 @@ export default function App() {
               <FirstPersonControls enabled={false}>
                 <ThirdPersonControls enabled={true}>
                   <TopDownControls enabled={false}>
-                    <CharacterControls>
+                    <CharacterControls helper={debug}>
                       <Character />
                     </CharacterControls>
                   </TopDownControls>

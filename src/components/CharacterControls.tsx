@@ -1,4 +1,4 @@
-import { ReactNode, useRef, useState, createContext, useContext } from 'react';
+import { ReactNode, useRef, useState, createContext, useContext, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useKeyboardControls } from '@react-three/drei';
 import { RigidBody, CapsuleCollider, RapierRigidBody, useRapier } from '@react-three/rapier';
@@ -36,6 +36,7 @@ export const useCharacterState = useCharacterControlsContext;
 interface CharacterControlsProps {
   children?: ReactNode;
   position?: [number, number, number];
+  helper?: boolean;
 }
 
 const MOVE_SPEED = 5;
@@ -45,8 +46,15 @@ const rayDirection = { x: 0, y: -1, z: 0 };
 const camForward = new THREE.Vector3();
 const camRight = new THREE.Vector3();
 
-export function CharacterControls({ children, position = [0, 1.5, 0] }: CharacterControlsProps) {
+export function CharacterControls({
+  children,
+  position = [0, 1.5, 0],
+  helper = false,
+}: CharacterControlsProps) {
   const rigidBodyRef = useRef<RapierRigidBody>(null);
+  const characterGroupRef = useRef<THREE.Group>(null);
+  const facingAngleRef = useRef<number>(0);
+
   const { camera } = useThree();
   const { rapier, world } = useRapier();
   const [, get] = useKeyboardControls();
@@ -56,7 +64,16 @@ export function CharacterControls({ children, position = [0, 1.5, 0] }: Characte
   const [controlsState, setControlsState] = useState<CharacterControlsState>(defaultControlsState);
   const controlsRef = useRef<CharacterControlsState>(defaultControlsState);
 
-  useFrame(() => {
+  // Arrow helper showing front facing direction
+  const frontArrow = useMemo(() => {
+    // Local forward is +Z (facing direction)
+    const dir = new THREE.Vector3(0, 0, 1);
+    const origin = new THREE.Vector3(0, 0, 0);
+    // Blue arrow indicating the front facing direction
+    return new THREE.ArrowHelper(dir, origin, 1.8, 0x2563eb, 0.45, 0.25);
+  }, []);
+
+  useFrame((_, delta) => {
     if (!rigidBodyRef.current) return;
 
     // Use get() from drei useKeyboardControls
@@ -90,6 +107,21 @@ export function CharacterControls({ children, position = [0, 1.5, 0] }: Characte
 
     if (moveVector.lengthSq() > 0) {
       moveVector.normalize().multiplyScalar(MOVE_SPEED);
+    }
+
+    // Smoothly rotate character to face movement direction
+    if (moveVector.lengthSq() > 0.05) {
+      const targetAngle = Math.atan2(moveVector.x, moveVector.z);
+      const angleDiff =
+        THREE.MathUtils.euclideanModulo(
+          targetAngle - facingAngleRef.current + Math.PI,
+          Math.PI * 2
+        ) - Math.PI;
+      facingAngleRef.current += angleDiff * Math.min(1, delta * 15);
+    }
+
+    if (characterGroupRef.current) {
+      characterGroupRef.current.rotation.y = facingAngleRef.current;
     }
 
     // Cast downward ray from character center to check if firmly on the ground
@@ -176,7 +208,16 @@ export function CharacterControls({ children, position = [0, 1.5, 0] }: Characte
         restitution={0.0}
       >
         <CapsuleCollider args={[0.55, 0.3]} />
-        {children}
+        <group ref={characterGroupRef}>
+          {children}
+
+          {/* Arrow helper showing front facing direction when helper is true */}
+          {helper && (
+            <group position={[0, -0.1, 0]}>
+              <primitive object={frontArrow} />
+            </group>
+          )}
+        </group>
       </RigidBody>
     </CharacterControlsContext.Provider>
   );
